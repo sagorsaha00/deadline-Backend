@@ -9,7 +9,6 @@
     "forceConsistentCasingInFileNames": true,
     "outDir": "dist",
     "rootDir": ".",
-    "types": ["node"],
     "declaration": false,
     "sourceMap": true
   },
