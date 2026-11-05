@@ -1,0 +1,224 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  COMPLETED
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  NEW_COMMENT
+  DEADLINE_REMINDER
+  TASK_OVERDUE
+  TASK_SUBMITTED_FOR_REVIEW
+  TASK_COMPLETED
+  TASK_REOPENED
+  TASK_REASSIGNED
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model User {
+  id                  String               @id @default(uuid())
+  email               String               @unique
+  password            String
+  name                String
+  role                Role                 @default(MEMBER)
+  avatarUrl           String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  tasksCreated        Task[]               @relation("TaskCreator")
+  tasksAssigned       Task[]               @relation("TaskAssignee")
+  comments            Comment[]
+  notifications       Notification[]
+  activityLogs        ActivityLog[]
+  attachments         Attachment[]
+  passwordResetTokens PasswordResetToken[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Task {
+  id            String                @id @default(uuid())
+  title         String
+  description   String?
+  jiraUrl       String?
+  assignedToId  String?
+  assignedName  String
+  assignedEmail String
+  createdById   String
+  deadline      DateTime
+  priority      Priority              @default(MEDIUM)
+  status        TaskStatus            @default(TODO)
+  completedAt   DateTime?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  assignedTo    User?                 @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdBy     User                  @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  comments      Comment[]
+  attachments   Attachment[]
+  notifications Notification[]
+  activityLogs  ActivityLog[]
+  emailLogs     EmailLog[]
+  reminders     DeadlineReminderLog[]
+
+  @@index([assignedToId])
+  @@index([createdById])
+  @@index([deadline])
+  @@index([status])
+  @@index([priority])
+}
+
+model Comment {
+  id          String       @id @default(uuid())
+  taskId      String
+  userId      String
+  content     String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  task        Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attachments Attachment[]
+
+  @@index([taskId])
+  @@index([userId])
+}
+
+model Attachment {
+  id         String   @id @default(uuid())
+  taskId     String
+  commentId  String?
+  uploaderId String
+  publicId   String
+  secureUrl  String
+  fileName   String
+  mimeType   String
+  fileSize   Int
+  createdAt  DateTime @default(now())
+
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  comment    Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  uploader   User     @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([commentId])
+  @@index([uploaderId])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  taskId    String?
+  type      NotificationType
+  title     String?
+  message   String
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task      Task?            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model ActivityLog {
+  id           String   @id @default(uuid())
+  taskId       String
+  userId       String
+  activityType String
+  description  String
+  createdAt    DateTime @default(now())
+
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model EmailLog {
+  id              String      @id @default(uuid())
+  taskId          String?
+  recipient       String      @default("")
+  eventType       String      @default("GENERAL")
+  provider        String      @default("RESEND")
+  providerEmailId String?
+  idempotencyKey  String?
+  status          EmailStatus @default(PENDING)
+  errorMessage    String?
+  attempts        Int         @default(1)
+  sentAt          DateTime?
+  // Optional legacy fields for backward compatibility
+  to              String?
+  subject         String?
+  template        String?
+  metadata        String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @default(now()) @updatedAt
+
+  task            Task?       @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([recipient])
+  @@index([status])
+  @@index([idempotencyKey])
+  @@index([taskId])
+  @@index([createdAt])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+}
+
+model DeadlineReminderLog {
+  id           String   @id @default(uuid())
+  taskId       String
+  reminderType String
+  sentAt       DateTime @default(now())
+
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, reminderType])
+  @@index([taskId])
+  @@index([reminderType])
+}

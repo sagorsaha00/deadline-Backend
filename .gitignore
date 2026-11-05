@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# Environment variables (পাসওয়ার্ড/secret কখনো commit করবেন না)
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime / cache
+.cache/
+.temp/
+.tmp/
+.eslintcache
+coverage/
+.nyc_output/
+
+# Prisma
+# (prisma/migrations ফোল্ডার commit করুন, ignore করবেন না)
+prisma/*.db
+prisma/*.db-journal
+
+# Docker
+docker-compose.override.yml
+postgres_data/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / IDE
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# Uploads / temporary files
+uploads/
+tmp/

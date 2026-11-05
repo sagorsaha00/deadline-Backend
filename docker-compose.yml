@@ -1,0 +1,41 @@
+services:
+  database:
+    image: postgres:17-alpine
+    container_name: deadlinehub_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: deadlinehub
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d deadlinehub"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+    container_name: deadlinehub_api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PORT: 5000
+      DATABASE_URL: postgresql://postgres:password@database:5432/deadlinehub
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      database:
+        condition: service_healthy
+    command: sh -c "pnpm exec prisma generate && pnpm exec prisma migrate deploy && pnpm dev"
+
+volumes:
+  postgres_data:
