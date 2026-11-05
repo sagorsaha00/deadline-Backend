@@ -71,12 +71,12 @@ ${taskSummaries.join("\n")}
       });
 
       const totalAssigned = memberTasks.length;
-      const pendingReview = memberTasks.filter((t) => t.status === TaskStatus.IN_REVIEW).length;
+      const pendingReview = memberTasks.filter((t: any) => t.status === TaskStatus.IN_REVIEW).length;
       const overdue = memberTasks.filter(
-        (t) => t.status !== TaskStatus.COMPLETED && new Date(t.deadline) < now
+        (t: any) => t.status !== TaskStatus.COMPLETED && new Date(t.deadline) < now
       ).length;
 
-      const taskSummaries = memberTasks.map((t) => {
+      const taskSummaries = memberTasks.map((t: any) => {
         const isOverdue = t.status !== TaskStatus.COMPLETED && new Date(t.deadline) < now;
         return `- [${t.status}] "${t.title}" (Priority: ${t.priority}, Due: ${new Date(t.deadline).toLocaleDateString()}${isOverdue ? " - OVERDUE!" : ""}${t.jiraUrl ? `, Jira: ${t.jiraUrl}` : ""})`;
       });

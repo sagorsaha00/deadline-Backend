@@ -47,7 +47,7 @@ export async function createTask(req: AuthRequest, res: Response) {
     const parsedDeadline = new Date(deadline);
 
     // Database transaction: create task + log activity
-    const task = await prisma.$transaction(async (tx) => {
+    const task = await prisma.$transaction(async (tx: any) => {
       const createdTask = await tx.task.create({
         data: {
           title: title.trim(),
@@ -596,7 +596,7 @@ export async function updateTask(req: AuthRequest, res: Response) {
       }
     }
 
-    const updatedTask = await prisma.$transaction(async (tx) => {
+    const updatedTask = await prisma.$transaction(async (tx: any) => {
       const updated = await tx.task.update({
         where: { id },
         data: dataToUpdate,
@@ -734,7 +734,7 @@ export async function updateTaskStatus(req: AuthRequest, res: Response) {
     const isCompleting = status === TaskStatus.COMPLETED;
     const completedAt = isCompleting ? new Date() : null;
 
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await prisma.$transaction(async (tx: any) => {
       const result = await tx.task.update({
         where: { id },
         data: {
@@ -829,7 +829,7 @@ export async function submitForReview(req: AuthRequest, res: Response) {
       }
     }
 
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await prisma.$transaction(async (tx: any) => {
       const t = await tx.task.update({
         where: { id },
         data: { status: TaskStatus.IN_REVIEW },
@@ -903,7 +903,7 @@ export async function completeTask(req: AuthRequest, res: Response) {
 
     if (!task) return sendError(res, "Task not found", 404);
 
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await prisma.$transaction(async (tx: any) => {
       const t = await tx.task.update({
         where: { id },
         data: {
@@ -981,7 +981,7 @@ export async function requestChanges(req: AuthRequest, res: Response) {
 
     if (!task) return sendError(res, "Task not found", 404);
 
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await prisma.$transaction(async (tx: any) => {
       const t = await tx.task.update({
         where: { id },
         data: {

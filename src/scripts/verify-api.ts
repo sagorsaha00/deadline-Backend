@@ -153,7 +153,7 @@ async function runApiVerification() {
     take: 5,
   });
   console.log(`   Found ${emailLogs.length} EmailLog records for task ${createdTaskId}:`);
-  emailLogs.forEach((log) => {
+  emailLogs.forEach((log: any) => {
     console.log(`   - [${log.provider}] Event: ${log.eventType}, To: ${log.recipient}, Status: ${log.status}`);
   });
 

@@ -1,27 +1,19 @@
 {
   "name": "deadLine_backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "DeadlineHub Backend API",
+  "main": "dist/server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "tsx watch server.ts",
-    "build": "tsc",
+    "build": "prisma generate && tsc",
     "start": "node dist/server.js",
     "seed": "tsx src/scripts/seed.ts",
-    "postinstall": "prisma skills sync || exit 0"
+    "postinstall": "prisma generate"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "12.16.1",
-      "onFail": "download"
-    }
-  },
-  "packageManager": "pnpm@12.16.1",
   "type": "module",
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.1",
@@ -39,6 +31,7 @@
     "node-cron": "^4.6.0",
     "nodemailer": "^10.3.1",
     "pg": "^8.23.1",
+    "prisma": "7.10.1",
     "resend": "^6.37.0",
     "zod": "^4.6.7"
   },
@@ -54,7 +47,6 @@
     "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.23.1",
     "axios": "^1.21.0",
-    "prisma": "7.10.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   }

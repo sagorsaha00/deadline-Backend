@@ -26,7 +26,7 @@ async function testScheduler() {
     orderBy: { createdAt: "desc" },
   });
   console.log(`\nEmail logs recorded in database: ${emailLogs.length}`);
-  emailLogs.forEach((l) => {
+  emailLogs.forEach((l: any) => {
     console.log(`- To: ${l.to} | Subject: "${l.subject}" | Status: ${l.status}`);
   });
 

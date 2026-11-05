@@ -81,7 +81,7 @@ export async function addComment(req: AuthRequest, res: Response) {
       }
     }
 
-    const comment = await prisma.$transaction(async (tx) => {
+    const comment = await prisma.$transaction(async (tx: any) => {
       const newComment = await tx.comment.create({
         data: {
           taskId,
