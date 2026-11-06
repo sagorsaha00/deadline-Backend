@@ -18,7 +18,7 @@ export const env = {
 
   // Groq AI
   GROQ_API_KEY: process.env.GROQ_API_KEY ?? "",
-  GROQ_MODEL: process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile",
+  GROQ_MODEL: process.env.GROQ_MODEL || "openai/gpt-oss-120b",
 
   // Tavily Search (Optional)
   TAVILY_API_KEY: process.env.TAVILY_API_KEY ?? "",
