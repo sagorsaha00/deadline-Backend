@@ -262,6 +262,148 @@ export async function getTasks(req: AuthRequest, res: Response) {
   }
 }
 
+export async function getDashboardStats(req: AuthRequest, res: Response) {
+  try {
+    if (!req.user) return sendError(res, "Unauthorized", 401);
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
+    const endOfTomorrow = new Date(endOfToday.getTime() + 24 * 60 * 60 * 1000);
+    const endOf7Days = new Date(startOfToday.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    const isAdmin = req.user.role === Role.ADMIN;
+
+    // Base filter: Admin sees all tasks; Member sees only assigned tasks
+    const baseWhere: any = isAdmin
+      ? {}
+      : {
+          OR: [
+            { assignedToId: req.user.id },
+            { assignedEmail: { equals: req.user.email, mode: "insensitive" } },
+          ],
+        };
+
+    const allTasks = await prisma.task.findMany({
+      where: baseWhere,
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        priority: true,
+        deadline: true,
+        completedAt: true,
+        assignedToId: true,
+        assignedName: true,
+        assignedEmail: true,
+      },
+    });
+
+    const totalTasks = allTasks.length;
+    let todoCount = 0;
+    let inProgressCount = 0;
+    let inReviewCount = 0;
+    let completedCount = 0;
+    let overdueCount = 0;
+
+    let dueToday = 0;
+    let dueTomorrow = 0;
+    let dueIn7Days = 0;
+
+    for (const t of allTasks) {
+      if (t.status === TaskStatus.TODO) todoCount++;
+      else if (t.status === TaskStatus.IN_PROGRESS) inProgressCount++;
+      else if (t.status === TaskStatus.IN_REVIEW) inReviewCount++;
+      else if (t.status === TaskStatus.COMPLETED) completedCount++;
+
+      const isCompleted = t.status === TaskStatus.COMPLETED;
+      const dTime = new Date(t.deadline).getTime();
+
+      if (!isCompleted && dTime < now.getTime()) {
+        overdueCount++;
+      }
+
+      if (!isCompleted && dTime >= now.getTime()) {
+        if (dTime < endOfToday.getTime()) {
+          dueToday++;
+        } else if (dTime < endOfTomorrow.getTime()) {
+          dueTomorrow++;
+        }
+        if (dTime <= endOf7Days.getTime()) {
+          dueIn7Days++;
+        }
+      }
+    }
+
+    const completionProgress = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
+    const remainingCount = totalTasks - completedCount;
+
+    // Team progress breakdown (for ADMIN only)
+    let teamProgress: any[] = [];
+    if (isAdmin) {
+      const users = await prisma.user.findMany({
+        where: { role: Role.MEMBER },
+        select: { id: true, name: true, email: true, avatarUrl: true },
+        orderBy: { name: "asc" },
+      });
+
+      teamProgress = users.map((u) => {
+        const userTasks = allTasks.filter(
+          (t) => t.assignedToId === u.id || t.assignedEmail.toLowerCase() === u.email.toLowerCase()
+        );
+        const uTotal = userTasks.length;
+        const uCompleted = userTasks.filter((t) => t.status === TaskStatus.COMPLETED).length;
+        const uInProgress = userTasks.filter((t) => t.status === TaskStatus.IN_PROGRESS).length;
+        const uInReview = userTasks.filter((t) => t.status === TaskStatus.IN_REVIEW).length;
+        const uTodo = userTasks.filter((t) => t.status === TaskStatus.TODO).length;
+        const uOverdue = userTasks.filter(
+          (t) => t.status !== TaskStatus.COMPLETED && new Date(t.deadline).getTime() < now.getTime()
+        ).length;
+        const uPercentage = uTotal > 0 ? Math.round((uCompleted / uTotal) * 100) : 0;
+
+        return {
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          avatarUrl: u.avatarUrl,
+          totalAssigned: uTotal,
+          todo: uTodo,
+          inProgress: uInProgress,
+          inReview: uInReview,
+          completed: uCompleted,
+          overdue: uOverdue,
+          completionPercentage: uPercentage,
+        };
+      });
+    }
+
+    return sendSuccess(
+      res,
+      {
+        totalTasks,
+        todoCount,
+        inProgressCount,
+        inReviewCount,
+        completedCount,
+        overdueCount,
+        remainingCount,
+        completionProgress,
+        deadlines: {
+          dueToday,
+          dueTomorrow,
+          dueIn7Days,
+          overdue: overdueCount,
+          completed: completedCount,
+        },
+        teamProgress,
+      },
+      "Dashboard statistics retrieved successfully"
+    );
+  } catch (error) {
+    return sendError(res, "Failed to retrieve dashboard statistics", 500, error);
+  }
+}
+
 export async function getAssignedToMe(req: AuthRequest, res: Response) {
   try {
     if (!req.user) return sendError(res, "Unauthorized", 401);

@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   createTask,
   getTasks,
+  getDashboardStats,
   getAssignedToMe,
   getUpcomingDeadlines,
   getDueToday,
@@ -32,6 +33,7 @@ const router = Router();
 router.use(authenticate);
 
 // Specific queries defined BEFORE /:id
+router.get("/dashboard-stats", getDashboardStats);
 router.get("/assigned-to-me", getAssignedToMe);
 router.get("/upcoming-deadlines", getUpcomingDeadlines);
 router.get("/due-today", getDueToday);

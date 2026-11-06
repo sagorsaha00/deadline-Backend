@@ -113,12 +113,10 @@ ${tasksContext}
 
     const groq = getGroqClient();
 
-    if (!groq) {
-      // Smart fallback when GROQ_API_KEY is not set
-      const reply = `
+    const buildFallbackReply = () => `
 ### DeadlineHub Assistant Summary
 
-Hello **${req.user.name}**! Here is your current task summary based on real-time database records:
+Hello **${req.user?.name || "there"}**! Here is your current task summary based on real-time database records:
 
 ${
   isAdmin
@@ -130,39 +128,47 @@ ${
 - You have tasks currently tracked in the system.
 - Once you finish work on a task, remember to click **Submit for Review** so an Admin can approve it!`
 }
+    `.trim();
 
-*(Tip: To enable full Llama 3.3 conversational intelligence, add \`GROQ_API_KEY\` to your backend \`.env\` file).*
-      `.trim();
+    if (groq) {
+      try {
+        const chatHistory = Array.isArray(messages)
+          ? messages.slice(-6).map((m: any) => ({
+              role: m.role === "assistant" ? ("assistant" as const) : ("user" as const),
+              content: String(m.content),
+            }))
+          : [{ role: "user" as const, content: String(userPrompt) }];
 
-      return sendSuccess(res, { reply, model: "fallback-rule-engine" });
+        const model = env.GROQ_MODEL || "openai/gpt-oss-120b";
+        const completion = await groq.chat.completions.create({
+          model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...chatHistory,
+          ],
+          temperature: 0.3,
+          max_tokens: 1024,
+        });
+
+        const reply = completion.choices[0]?.message?.content?.trim();
+        if (reply) {
+          return sendSuccess(res, {
+            reply,
+            model,
+          });
+        }
+      } catch (groqError: any) {
+        console.warn("[AiController] Groq API call failed, falling back to database summary:", groqError.message);
+      }
     }
 
-    // Call Groq API
-    const chatHistory = Array.isArray(messages)
-      ? messages.slice(-6).map((m: any) => ({
-          role: m.role === "assistant" ? ("assistant" as const) : ("user" as const),
-          content: String(m.content),
-        }))
-      : [{ role: "user" as const, content: String(userPrompt) }];
-
-    const completion = await groq.chat.completions.create({
-      model: env.GROQ_MODEL || "llama-3.3-70b-versatile",
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...chatHistory,
-      ],
-      temperature: 0.3,
-      max_tokens: 1024,
-    });
-
-    const reply = completion.choices[0]?.message?.content || "I couldn't generate a response at this time.";
-
+    // Graceful contextual fallback based on PostgreSQL records
     return sendSuccess(res, {
-      reply,
-      model: env.GROQ_MODEL || "llama-3.3-70b-versatile",
+      reply: buildFallbackReply(),
+      model: "task-assistant",
     });
   } catch (error: any) {
-    console.error("[AiController] Groq error:", error);
-    return sendError(res, error.message || "Failed to process AI chat request", 500);
+    console.error("[AiController] Unexpected error:", error.message);
+    return sendError(res, "Unable to process assistant request at this time", 500);
   }
 }
