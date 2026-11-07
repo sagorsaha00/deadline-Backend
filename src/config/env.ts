@@ -7,9 +7,13 @@ export const env = {
   JWT_SECRET: process.env.JWT_SECRET ?? "deadlinehub-default-dev-secret-key-change-in-prod",
   CLIENT_URL: process.env.CLIENT_URL ?? "http://localhost:5173",
 
-  // Resend Email Service (supports resendit or RESEND_API_KEY)
-  RESEND_API_KEY: process.env.RESEND_API_KEY || process.env.resendit || "",
-  EMAIL_FROM: process.env.EMAIL_FROM || "DeadlineHub <onboarding@resend.dev>",
+  // Gmail SMTP Email Service
+  SMTP_HOST: process.env.SMTP_HOST || "smtp.gmail.com",
+  SMTP_PORT: Number(process.env.SMTP_PORT || 587),
+  SMTP_SECURE: process.env.SMTP_SECURE === "true",
+  SMTP_USER: process.env.SMTP_USER || "sagorsahadev00@gmail.com",
+  SMTP_PASS: process.env.SMTP_PASS || "",
+  EMAIL_FROM: process.env.EMAIL_FROM || "DeadlineHub <sagorsahadev00@gmail.com>",
 
   // Cloudinary
   CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME ?? "",

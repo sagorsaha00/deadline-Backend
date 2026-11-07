@@ -42,8 +42,8 @@ async function runApiVerification() {
   const createTaskRes = await axios.post(
     `${API_BASE}/tasks`,
     {
-      title: "Resend & Workflow Live Verification Task",
-      description: "Testing strict review workflow, Resend emails, and AI copilot.",
+      title: "Gmail SMTP & Workflow Live Verification Task",
+      description: "Testing strict review workflow, Gmail SMTP emails, and AI copilot.",
       jiraUrl: "https://jira.company.com/browse/VERIFY-101",
       assignedName: "Sarah Jenkins",
       assignedEmail: "sarah.jenkins@company.com",
@@ -118,7 +118,7 @@ async function runApiVerification() {
   console.log(`   [PASSED] Task approved and marked: ${completeRes.data.data.status}, completedAt: ${completeRes.data.data.completedAt}`);
 
   // 11. Admin sends manual deadline reminder on a task
-  console.log("\n11. Testing Admin Manual Deadline Reminder (Resend email + notification)...");
+  console.log("\n11. Testing Admin Manual Deadline Reminder (Gmail SMTP email + notification)...");
   const remindRes = await axios.post(
     `${API_BASE}/tasks/${createdTaskId}/remind`,
     {},
@@ -145,7 +145,7 @@ async function runApiVerification() {
   console.log(`   [PASSED] Admin AI reply received (Model: ${adminAiRes.data.data.model}):`);
   console.log(`   Preview: "${adminAiRes.data.data.reply.slice(0, 100)}..."`);
 
-  // 14. Check PostgreSQL EmailLog table for Resend logs
+  // 14. Check PostgreSQL EmailLog table for SMTP logs
   console.log("\n14. Verifying EmailLog Table in PostgreSQL...");
   const emailLogs = await prisma.emailLog.findMany({
     where: { taskId: createdTaskId },

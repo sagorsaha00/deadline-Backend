@@ -3,7 +3,7 @@ import { prisma } from "../../config/db.js";
 import { sendSuccess, sendError } from "../../utils/response.js";
 import { AuthRequest } from "../../middleware/auth.js";
 import { Role } from "@prisma/client";
-import { sendResendEmail } from "../emails/resendService.js";
+import { sendEmail } from "../emails/emailService.js";
 import { newCommentTemplate } from "../emails/emailTemplates.js";
 import { env } from "../../config/env.js";
 
@@ -166,7 +166,7 @@ export async function addComment(req: AuthRequest, res: Response) {
     }
 
     for (const recipient of emailRecipients) {
-      sendResendEmail({
+      sendEmail({
         to: recipient.email,
         subject: `New Comment on: ${task.title}`,
         html: newCommentTemplate({

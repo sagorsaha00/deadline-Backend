@@ -60,44 +60,45 @@ export function baseEmailLayout(content: string, title: string): string {
     .details-box {
       background-color: #F8FAFC;
       border: 1px solid #E2E8F0;
-      border-radius: 8px;
-      padding: 18px;
+      border-radius: 6px;
+      padding: 16px;
       margin: 20px 0;
     }
     .detail-row {
       display: flex;
-      justify-content: space-between;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
       font-size: 14px;
     }
     .detail-row:last-child {
       margin-bottom: 0;
     }
     .detail-label {
+      font-weight: 600;
       color: #64748B;
-      font-weight: 500;
+      width: 130px;
+      flex-shrink: 0;
     }
     .detail-value {
       color: #0F172A;
-      font-weight: 600;
-      text-align: right;
+      font-weight: 500;
+      word-break: break-all;
     }
     .btn {
       display: inline-block;
-      padding: 11px 22px;
       background-color: #0F172A;
       color: #FFFFFF !important;
-      text-decoration: none;
       font-weight: 500;
       font-size: 14px;
+      padding: 10px 20px;
       border-radius: 6px;
-      margin: 15px 0 5px 0;
+      text-decoration: none;
+      margin-top: 10px;
+      margin-right: 8px;
     }
     .btn-secondary {
-      background-color: #F1F5F9;
-      color: #1E293B !important;
+      background-color: #FFFFFF;
+      color: #0F172A !important;
       border: 1px solid #CBD5E1;
-      margin-left: 10px;
     }
     .footer {
       padding: 20px 30px;
@@ -108,7 +109,7 @@ export function baseEmailLayout(content: string, title: string): string {
       text-align: center;
     }
     .badge-urgent {
-      background-color: #FEE2E2;
+      background-color: #FEF2F2;
       color: #DC2626;
       padding: 2px 8px;
       border-radius: 4px;
@@ -116,8 +117,16 @@ export function baseEmailLayout(content: string, title: string): string {
       font-weight: 600;
     }
     .badge-warning {
-      background-color: #FEF3C7;
+      background-color: #FFFBEB;
       color: #D97706;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-review {
+      background-color: #EEF2FF;
+      color: #4F46E5;
       padding: 2px 8px;
       border-radius: 4px;
       font-size: 12px;
@@ -135,7 +144,7 @@ export function baseEmailLayout(content: string, title: string): string {
         ${content}
       </div>
       <div class="footer">
-        &copy; ${new Date().getFullYear()} DeadlineHub. All rights reserved. This is an automated notification.
+        &copy; ${new Date().getFullYear()} DeadlineHub. All rights reserved.
       </div>
     </div>
   </div>
@@ -150,27 +159,24 @@ export function taskAssignmentTemplate(data: {
   jiraUrl?: string | null;
   deadline: string;
   priority: string;
+  status?: string;
   taskUrl: string;
-  creatorName: string;
-  isCreatorConfirmation?: boolean;
+  creatorName?: string;
+  description?: string | null;
 }) {
   const content = `
-    <h1 class="title">${
-      data.isCreatorConfirmation
-        ? "Task Created & Assigned"
-        : "You have been assigned a task"
-    }</h1>
+    <h1 class="title">New Task Assigned to You</h1>
     <p>Hello <strong>${data.assignedName}</strong>,</p>
-    <p>${
-      data.isCreatorConfirmation
-        ? `You have successfully created and assigned the task <strong>"${data.title}"</strong>.`
-        : `<strong>${data.creatorName}</strong> has assigned you to the task <strong>"${data.title}"</strong>.`
-    }</p>
+    <p>A new task has been assigned to you in DeadlineHub.</p>
 
     <div class="details-box">
       <div class="detail-row">
         <span class="detail-label">Task:</span>
         <span class="detail-value">${data.title}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Description:</span>
+        <span class="detail-value">${data.description || "No description provided"}</span>
       </div>
       <div class="detail-row">
         <span class="detail-label">Priority:</span>
@@ -180,28 +186,39 @@ export function taskAssignmentTemplate(data: {
         <span class="detail-label">Deadline:</span>
         <span class="detail-value">${data.deadline}</span>
       </div>
+      <div class="detail-row">
+        <span class="detail-label">Status:</span>
+        <span class="detail-value">${data.status || "TODO"}</span>
+      </div>
       ${
         data.jiraUrl
           ? `
       <div class="detail-row">
-        <span class="detail-label">Jira Ticket:</span>
-        <span class="detail-value"><a href="${data.jiraUrl}" target="_blank" rel="noreferrer noopener" style="color:#2563EB;">Open in Jira &rarr;</a></span>
+        <span class="detail-label">Jira URL:</span>
+        <span class="detail-value"><a href="${data.jiraUrl}" target="_blank" rel="noreferrer noopener" style="color:#2563EB;">${data.jiraUrl}</a></span>
       </div>`
           : ""
       }
     </div>
 
-    <div>
-      <a href="${data.taskUrl}" class="btn">View Task Details</a>
+    <p>Please log in to DeadlineHub to review your task and start working on it.</p>
+
+    <div style="margin: 20px 0;">
+      <a href="${data.taskUrl}" class="btn">View Task in DeadlineHub</a>
       ${
         data.jiraUrl
           ? `<a href="${data.jiraUrl}" target="_blank" rel="noreferrer noopener" class="btn btn-secondary">Open Jira Ticket</a>`
           : ""
       }
     </div>
+
+    <p style="margin-top: 25px; color: #64748B; font-size: 14px;">
+      Thank you,<br />
+      <strong>DeadlineHub Team</strong>
+    </p>
   `;
 
-  return baseEmailLayout(content, `Task Assignment: ${data.title}`);
+  return baseEmailLayout(content, "New Task Assigned to You — DeadlineHub");
 }
 
 export function deadlineReminderTemplate(data: {
@@ -209,20 +226,22 @@ export function deadlineReminderTemplate(data: {
   recipientName: string;
   deadline: string;
   timeRemainingText: string;
-  urgency: "3_DAYS" | "1_DAY" | "1_HOUR";
+  urgency: "3_DAYS" | "1_DAY" | "1_HOUR" | "MANUAL";
   taskUrl: string;
   jiraUrl?: string | null;
 }) {
   const badge =
     data.urgency === "1_HOUR"
       ? `<span class="badge-urgent">URGENT: 1 HOUR REMAINING</span>`
+      : data.urgency === "MANUAL"
+      ? `<span class="badge-urgent">REMINDER FROM ADMIN</span>`
       : `<span class="badge-warning">REMINDER: ${data.timeRemainingText.toUpperCase()} REMAINING</span>`;
 
   const content = `
     <div style="margin-bottom: 12px;">${badge}</div>
     <h1 class="title">Deadline Reminder for "${data.title}"</h1>
     <p>Hello <strong>${data.recipientName}</strong>,</p>
-    <p>This is an automated reminder that the deadline for <strong>"${data.title}"</strong> is approaching in <strong>${data.timeRemainingText}</strong>.</p>
+    <p>This is a reminder that the deadline for <strong>"${data.title}"</strong> is approaching in <strong>${data.timeRemainingText}</strong>.</p>
 
     <div class="details-box">
       <div class="detail-row">
@@ -272,6 +291,26 @@ export function taskOverdueTemplate(data: {
   return baseEmailLayout(content, `Overdue Task: ${data.title}`);
 }
 
+export function taskSubmittedForReviewTemplate(data: {
+  title: string;
+  recipientName: string;
+  submittedByName: string;
+  taskUrl: string;
+}) {
+  const content = `
+    <div style="margin-bottom: 12px;"><span class="badge-review">WAITING FOR REVIEW</span></div>
+    <h1 class="title">Task Submitted for Review: "${data.title}"</h1>
+    <p>Hello <strong>${data.recipientName}</strong>,</p>
+    <p><strong>${data.submittedByName}</strong> has submitted the task <strong>"${data.title}"</strong> for your review.</p>
+
+    <div>
+      <a href="${data.taskUrl}" class="btn">Review Submission</a>
+    </div>
+  `;
+
+  return baseEmailLayout(content, `Submitted for Review: ${data.title}`);
+}
+
 export function taskCompletedTemplate(data: {
   title: string;
   recipientName: string;
@@ -279,9 +318,9 @@ export function taskCompletedTemplate(data: {
   taskUrl: string;
 }) {
   const content = `
-    <h1 class="title">Task Completed: "${data.title}"</h1>
+    <h1 class="title">Task Approved & Completed: "${data.title}"</h1>
     <p>Hello <strong>${data.recipientName}</strong>,</p>
-    <p>The task <strong>"${data.title}"</strong> was marked completed by <strong>${data.completedByName}</strong>.</p>
+    <p>The task <strong>"${data.title}"</strong> was reviewed and marked completed by <strong>${data.completedByName}</strong>.</p>
 
     <div>
       <a href="${data.taskUrl}" class="btn">View Completed Task</a>
@@ -291,28 +330,57 @@ export function taskCompletedTemplate(data: {
   return baseEmailLayout(content, `Task Completed: ${data.title}`);
 }
 
-export function newCommentTemplate(data: {
+export function taskReassignedTemplate(data: {
   title: string;
   recipientName: string;
-  authorName: string;
-  commentPreview: string;
+  assignedByName: string;
   taskUrl: string;
+  isPreviousAssignee?: boolean;
 }) {
   const content = `
-    <h1 class="title">New Comment on "${data.title}"</h1>
+    <h1 class="title">${data.isPreviousAssignee ? "Task Reassigned" : "You have been assigned to a task"}</h1>
     <p>Hello <strong>${data.recipientName}</strong>,</p>
-    <p><strong>${data.authorName}</strong> added a comment:</p>
-
-    <div class="details-box" style="font-style: italic; color: #334155;">
-      "${data.commentPreview}"
-    </div>
+    <p>${
+      data.isPreviousAssignee
+        ? `The task <strong>"${data.title}"</strong> previously assigned to you has been reassigned to another team member by ${data.assignedByName}.`
+        : `<strong>${data.assignedByName}</strong> has assigned you to <strong>"${data.title}"</strong>.`
+    }</p>
 
     <div>
-      <a href="${data.taskUrl}" class="btn">View Discussion</a>
+      <a href="${data.taskUrl}" class="btn">View Task</a>
     </div>
   `;
 
-  return baseEmailLayout(content, `New comment on: ${data.title}`);
+  return baseEmailLayout(content, `Task Assignment Update: ${data.title}`);
+}
+
+export function newCommentTemplate(data: {
+  title: string;
+  recipientName: string;
+  commentAuthorName?: string;
+  authorName?: string;
+  content?: string;
+  commentPreview?: string;
+  taskUrl: string;
+}) {
+  const author = data.authorName || data.commentAuthorName || "A team member";
+  const commentText = data.commentPreview || data.content || "";
+
+  const content = `
+    <h1 class="title">New Comment on "${data.title}"</h1>
+    <p>Hello <strong>${data.recipientName}</strong>,</p>
+    <p><strong>${author}</strong> left a new comment on task <strong>"${data.title}"</strong>:</p>
+
+    <div style="background-color: #F1F5F9; border-left: 4px solid #0F172A; padding: 12px 16px; margin: 16px 0; border-radius: 0 6px 6px 0;">
+      <p style="margin: 0; font-style: italic; color: #334155;">"${commentText}"</p>
+    </div>
+
+    <div>
+      <a href="${data.taskUrl}" class="btn">Reply to Comment</a>
+    </div>
+  `;
+
+  return baseEmailLayout(content, `New Comment: ${data.title}`);
 }
 
 export function passwordResetTemplate(data: {

@@ -3,13 +3,13 @@ import { prisma } from "../../config/db.js";
 import { sendSuccess, sendError } from "../../utils/response.js";
 import { AuthRequest } from "../../middleware/auth.js";
 import { TaskStatus, Priority, Role } from "@prisma/client";
-import { sendResendEmail } from "../emails/resendService.js";
+import { sendEmail, sendTaskAssignmentEmail } from "../emails/emailService.js";
 import {
   taskAssignmentTemplate,
   taskCompletedTemplate,
   taskSubmittedForReviewTemplate,
   deadlineReminderTemplate,
-} from "../emails/resendTemplates.js";
+} from "../emails/emailTemplates.js";
 import { env } from "../../config/env.js";
 
 function enrichTaskWithOverdue<T extends { deadline: Date; status: TaskStatus; completedAt: Date | null }>(
@@ -31,31 +31,44 @@ export async function createTask(req: AuthRequest, res: Response) {
       title,
       description,
       jiraUrl,
+      assignedToId,
       assignedName,
       assignedEmail,
       deadline,
       priority,
     } = req.body;
 
-    const normalizedAssignedEmail = assignedEmail.trim().toLowerCase();
+    // 1. Retrieve the assigned Member from database using assignedToId or registered email
+    let assignedUser: any = null;
+    if (assignedToId) {
+      assignedUser = await prisma.user.findUnique({
+        where: { id: assignedToId },
+      });
+    }
 
-    // Check if an existing user account has this email
-    const assignedUser = await prisma.user.findUnique({
-      where: { email: normalizedAssignedEmail },
-    });
+    if (!assignedUser && assignedEmail) {
+      const normalizedAssignedEmail = assignedEmail.trim().toLowerCase();
+      assignedUser = await prisma.user.findUnique({
+        where: { email: normalizedAssignedEmail },
+      });
+    }
+
+    const finalAssignedToId = assignedUser ? assignedUser.id : (assignedToId || null);
+    const finalAssignedEmail = assignedUser ? assignedUser.email : (assignedEmail ? assignedEmail.trim().toLowerCase() : "");
+    const finalAssignedName = assignedUser ? assignedUser.name : (assignedName ? assignedName.trim() : "Unassigned");
 
     const parsedDeadline = new Date(deadline);
 
-    // Database transaction: create task + log activity
+    // Database transaction: create task + log activity + create in-app notification for Member
     const task = await prisma.$transaction(async (tx: any) => {
       const createdTask = await tx.task.create({
         data: {
           title: title.trim(),
           description: description?.trim() || null,
           jiraUrl: jiraUrl?.trim() || null,
-          assignedName: assignedName.trim(),
-          assignedEmail: normalizedAssignedEmail,
-          assignedToId: assignedUser?.id || null,
+          assignedName: finalAssignedName,
+          assignedEmail: finalAssignedEmail,
+          assignedToId: finalAssignedToId,
           createdById: req.user!.id,
           deadline: parsedDeadline,
           priority: (priority as Priority) || Priority.MEDIUM,
@@ -91,14 +104,16 @@ export async function createTask(req: AuthRequest, res: Response) {
         },
       });
 
-      // If assigned user exists in system and is not the creator, create in-app notification
-      if (assignedUser && assignedUser.id !== req.user!.id) {
+      // Create in-app notification strictly for the assigned Member
+      if (assignedUser) {
         await tx.notification.create({
           data: {
             userId: assignedUser.id,
             taskId: createdTask.id,
             type: "TASK_ASSIGNED",
+            title: "New Task Assigned",
             message: `${req.user!.name} assigned you to task: "${createdTask.title}"`,
+            isRead: false,
           },
         });
       }
@@ -106,50 +121,11 @@ export async function createTask(req: AuthRequest, res: Response) {
       return createdTask;
     });
 
-    const taskUrl = `${env.CLIENT_URL}/tasks/${task.id}`;
-    const formattedDeadline = parsedDeadline.toLocaleString();
-
-    // Send assignment email to assignee
-    sendResendEmail({
-      to: task.assignedEmail,
-      subject: `New Task Assigned: ${task.title}`,
-      html: taskAssignmentTemplate({
-        title: task.title,
-        assignedName: task.assignedName,
-        jiraUrl: task.jiraUrl,
-        deadline: formattedDeadline,
-        priority: task.priority,
-        taskUrl,
-        creatorName: req.user.name,
-        isCreatorConfirmation: false,
-      }),
-      eventType: "TASK_ASSIGNED",
-      taskId: task.id,
-      idempotencyKey: `task-assigned/${task.id}/${task.assignedEmail}`,
-      metadata: { taskId: task.id },
-    }).catch((e) => console.error("Error sending assignment email:", e));
-
-    // Send confirmation email to creator
-    if (req.user.email !== task.assignedEmail) {
-      sendResendEmail({
-        to: req.user.email,
-        subject: `Task Created: ${task.title}`,
-        html: taskAssignmentTemplate({
-          title: task.title,
-          assignedName: task.assignedName,
-          jiraUrl: task.jiraUrl,
-          deadline: formattedDeadline,
-          priority: task.priority,
-          taskUrl,
-          creatorName: req.user.name,
-          isCreatorConfirmation: true,
-        }),
-        eventType: "TASK_CREATED_CONFIRMATION",
-        taskId: task.id,
-        idempotencyKey: `task-created-confirm/${task.id}/${req.user.email}`,
-        metadata: { taskId: task.id },
-      }).catch((e) => console.error("Error sending creator confirmation email:", e));
-    }
+    // Send assignment email strictly to the assigned member's registered email
+    // (Never send to Admin or creator)
+    sendTaskAssignmentEmail(task.id).catch((e) =>
+      console.error("[TaskController] Error sending task assignment email:", e)
+    );
 
     return sendSuccess(res, enrichTaskWithOverdue(task), "Task created successfully", 201);
   } catch (error) {
@@ -644,6 +620,7 @@ export async function updateTask(req: AuthRequest, res: Response) {
       title,
       description,
       jiraUrl,
+      assignedToId,
       assignedName,
       assignedEmail,
       deadline,
@@ -700,16 +677,39 @@ export async function updateTask(req: AuthRequest, res: Response) {
     let assigneeChanged = false;
     let newAssignedUser: any = null;
 
-    if (assignedEmail && assignedEmail.toLowerCase() !== existing.assignedEmail.toLowerCase()) {
-      assigneeChanged = true;
-      const normalizedAssignedEmail = assignedEmail.trim().toLowerCase();
-      newAssignedUser = await prisma.user.findUnique({
-        where: { email: normalizedAssignedEmail },
-      });
+    const targetAssignedToId = assignedToId !== undefined ? assignedToId : null;
+    const targetAssignedEmail = assignedEmail ? assignedEmail.trim().toLowerCase() : null;
 
-      dataToUpdate.assignedEmail = normalizedAssignedEmail;
-      dataToUpdate.assignedName = (assignedName || existing.assignedName).trim();
-      dataToUpdate.assignedToId = newAssignedUser?.id || null;
+    // Detect if assignee is being changed
+    if (
+      (targetAssignedToId && targetAssignedToId !== existing.assignedToId) ||
+      (targetAssignedEmail && targetAssignedEmail !== existing.assignedEmail.toLowerCase())
+    ) {
+      assigneeChanged = true;
+      if (targetAssignedToId) {
+        newAssignedUser = await prisma.user.findUnique({
+          where: { id: targetAssignedToId },
+        });
+      }
+      if (!newAssignedUser && targetAssignedEmail) {
+        newAssignedUser = await prisma.user.findUnique({
+          where: { email: targetAssignedEmail },
+        });
+      }
+
+      const finalNewAssignedToId = newAssignedUser ? newAssignedUser.id : targetAssignedToId;
+      const finalNewAssignedEmail = newAssignedUser
+        ? newAssignedUser.email
+        : targetAssignedEmail || existing.assignedEmail;
+      const finalNewAssignedName = newAssignedUser
+        ? newAssignedUser.name
+        : assignedName
+        ? assignedName.trim()
+        : existing.assignedName;
+
+      dataToUpdate.assignedToId = finalNewAssignedToId;
+      dataToUpdate.assignedEmail = finalNewAssignedEmail;
+      dataToUpdate.assignedName = finalNewAssignedName;
 
       activities.push({
         type: "Task Assigned",
@@ -763,39 +763,43 @@ export async function updateTask(req: AuthRequest, res: Response) {
         });
       }
 
-      if (assigneeChanged && newAssignedUser && newAssignedUser.id !== req.user!.id) {
+      // Reassignment notifications
+      if (assigneeChanged && newAssignedUser) {
+        // Notification for newly assigned member (Member B)
         await tx.notification.create({
           data: {
             userId: newAssignedUser.id,
             taskId: updated.id,
             type: "TASK_ASSIGNED",
+            title: "New Task Assigned",
             message: `${req.user!.name} assigned you to task: "${updated.title}"`,
+            isRead: false,
           },
         });
+
+        // Notification for previously assigned member (Member A)
+        if (existing.assignedToId && existing.assignedToId !== newAssignedUser.id) {
+          await tx.notification.create({
+            data: {
+              userId: existing.assignedToId,
+              taskId: updated.id,
+              type: "TASK_REASSIGNED",
+              title: "Task Reassigned",
+              message: `Task "${updated.title}" was reassigned to another team member.`,
+              isRead: false,
+            },
+          });
+        }
       }
 
       return updated;
     });
 
-    // Send assignment email ONLY IF assignee changed!
+    // Send assignment email ONLY IF assignee changed, and strictly to new assignee!
     if (assigneeChanged) {
-      sendResendEmail({
-        to: updatedTask.assignedEmail,
-        subject: `New Task Assigned: ${updatedTask.title}`,
-        html: taskAssignmentTemplate({
-          title: updatedTask.title,
-          assignedName: updatedTask.assignedName,
-          jiraUrl: updatedTask.jiraUrl,
-          deadline: updatedTask.deadline.toLocaleString(),
-          priority: updatedTask.priority,
-          taskUrl: `${env.CLIENT_URL}/tasks/${updatedTask.id}`,
-          creatorName: req.user.name,
-        }),
-        eventType: "TASK_ASSIGNED",
-        taskId: updatedTask.id,
-        idempotencyKey: `task-reassigned/${updatedTask.id}/${updatedTask.assignedEmail}/${Date.now()}`,
-        metadata: { taskId: updatedTask.id },
-      }).catch((e) => console.error("Error sending update email:", e));
+      sendTaskAssignmentEmail(updatedTask.id).catch((e) =>
+        console.error("[TaskController] Error sending reassignment email:", e)
+      );
     }
 
     // If status changed to COMPLETED, send completion email
@@ -804,7 +808,7 @@ export async function updateTask(req: AuthRequest, res: Response) {
         new Set([existing.assignedEmail, existing.createdBy.email])
       );
       for (const recipientEmail of notifyEmails) {
-        sendResendEmail({
+        sendEmail({
           to: recipientEmail,
           subject: `Task Completed: ${updatedTask.title}`,
           html: taskCompletedTemplate({
@@ -923,7 +927,7 @@ export async function updateTaskStatus(req: AuthRequest, res: Response) {
       // Send completion email to creator and assignee
       const recipients = Array.from(new Set([task.assignedEmail, task.createdBy.email]));
       for (const email of recipients) {
-        sendResendEmail({
+        sendEmail({
           to: email,
           subject: `Task Completed: ${task.title}`,
           html: taskCompletedTemplate({
@@ -948,7 +952,7 @@ export async function updateTaskStatus(req: AuthRequest, res: Response) {
 
 /**
  * Member or Admin submits task for review.
- * Sets status to IN_REVIEW, notifies creator/admin via in-app & Resend email.
+ * Sets status to IN_REVIEW, notifies creator/admin via in-app & email.
  */
 export async function submitForReview(req: AuthRequest, res: Response) {
   try {
@@ -1006,7 +1010,7 @@ export async function submitForReview(req: AuthRequest, res: Response) {
     });
 
     // Send email to task creator
-    sendResendEmail({
+    sendEmail({
       to: task.createdBy.email,
       subject: `Task Submitted for Review: ${task.title}`,
       html: taskSubmittedForReviewTemplate({
@@ -1082,7 +1086,7 @@ export async function completeTask(req: AuthRequest, res: Response) {
     });
 
     // Send email to assignee
-    sendResendEmail({
+    sendEmail({
       to: task.assignedEmail,
       subject: `Task Completed: ${task.title}`,
       html: taskCompletedTemplate({
@@ -1161,7 +1165,7 @@ export async function requestChanges(req: AuthRequest, res: Response) {
     });
 
     // Notify assignee via email
-    sendResendEmail({
+    sendEmail({
       to: task.assignedEmail,
       subject: `Changes Requested: ${task.title}`,
       html: `
@@ -1228,8 +1232,8 @@ export async function sendManualReminder(req: AuthRequest, res: Response) {
       });
     }
 
-    // Resend Email
-    await sendResendEmail({
+    // Reminder Email
+    await sendEmail({
       to: task.assignedEmail,
       subject: `Admin Reminder: Deadline for ${task.title}`,
       html: deadlineReminderTemplate({

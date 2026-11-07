@@ -1,11 +1,11 @@
 import cron from "node-cron";
 import { prisma } from "../config/db.js";
 import { TaskStatus } from "@prisma/client";
-import { sendResendEmail } from "../modules/emails/resendService.js";
+import { sendEmail } from "../modules/emails/emailService.js";
 import {
   deadlineReminderTemplate,
   taskOverdueTemplate,
-} from "../modules/emails/resendTemplates.js";
+} from "../modules/emails/emailTemplates.js";
 import { env } from "../config/env.js";
 
 const REMINDER_TYPES = {
@@ -170,7 +170,7 @@ async function processDeadlineNotification(
   );
 
   for (const recipient of uniqueRecipients) {
-    sendResendEmail({
+    sendEmail({
       to: recipient.email,
       subject: `Deadline Reminder (${timeRemainingText} left): ${task.title}`,
       html: deadlineReminderTemplate({
@@ -225,7 +225,7 @@ async function processOverdueNotification(task: any) {
   );
 
   for (const recipient of uniqueRecipients) {
-    sendResendEmail({
+    sendEmail({
       to: recipient.email,
       subject: `Overdue Task Alert: ${task.title}`,
       html: taskOverdueTemplate({

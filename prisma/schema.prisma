@@ -172,7 +172,7 @@ model EmailLog {
   taskId          String?
   recipient       String      @default("")
   eventType       String      @default("GENERAL")
-  provider        String      @default("RESEND")
+  provider        String      @default("GMAIL_SMTP")
   providerEmailId String?
   idempotencyKey  String?
   status          EmailStatus @default(PENDING)

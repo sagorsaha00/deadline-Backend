@@ -25,12 +25,14 @@ export async function register(req: Request, res: Response) {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // SECURITY ENFORCEMENT: Public registration ALWAYS creates MEMBER accounts only.
+    // Never trust frontend-supplied roles (e.g. "ADMIN", "SUPER_ADMIN"); ignore/reject forged values.
     const user = await prisma.user.create({
       data: {
         name: name.trim(),
         email: normalizedEmail,
         password: hashedPassword,
-        role: role ?? "MEMBER",
+        role: "MEMBER",
       },
       select: {
         id: true,

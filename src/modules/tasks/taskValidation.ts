@@ -15,8 +15,9 @@ export const createTaskSchema = z.object({
       )
       .optional()
       .nullable(),
-    assignedName: z.string().min(1, "Assigned person name is required"),
-    assignedEmail: z.string().email("Valid assigned person email is required"),
+    assignedToId: z.string().optional().nullable(),
+    assignedName: z.string().min(1).optional().nullable(),
+    assignedEmail: z.string().email().optional().nullable(),
     deadline: z.string().refine((val) => !isNaN(Date.parse(val)), "Valid deadline date and time required"),
     priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).default("MEDIUM"),
   }),
@@ -35,8 +36,9 @@ export const updateTaskSchema = z.object({
       )
       .optional()
       .nullable(),
-    assignedName: z.string().min(1).optional(),
-    assignedEmail: z.string().email().optional(),
+    assignedToId: z.string().optional().nullable(),
+    assignedName: z.string().min(1).optional().nullable(),
+    assignedEmail: z.string().email().optional().nullable(),
     deadline: z
       .string()
       .refine((val) => !isNaN(Date.parse(val)), "Valid deadline date and time required")

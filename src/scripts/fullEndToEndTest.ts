@@ -62,7 +62,7 @@ async function runAllScenarios() {
       `${BASE_URL}/tasks`,
       {
         title: "Audit Verification: Core Deliverable Task",
-        description: "Validating full workflow lifecycle, real database aggregates, and Resend delivery logs.",
+        description: "Validating full workflow lifecycle, real database aggregates, and Gmail SMTP delivery logs.",
         jiraUrl: "https://jira.company.com/browse/PROJ-8821",
         assignedName: memberUser.name,
         assignedEmail: memberUser.email,
@@ -203,15 +203,15 @@ async function runAllScenarios() {
     console.log(`[PASSED] Configuration tip text absent: ${!hasTipText}`);
     console.log(`         Response preview: "${aiRes.data.data.reply.slice(0, 80).replace(/\n/g, " ")}..."`);
 
-    // 9. Scenario G: Resend Email Logs in PostgreSQL
-    console.log("\n--- 9. SCENARIO G: RESEND EMAILLOG TABLE VERIFICATION ---");
+    // 9. Scenario G: Gmail SMTP Email Logs in PostgreSQL
+    console.log("\n--- 9. SCENARIO G: GMAIL SMTP EMAILLOG TABLE VERIFICATION ---");
     const emailLogs = await prisma.emailLog.findMany({
       where: { taskId: createdTaskId },
       orderBy: { createdAt: "desc" },
     });
     console.log(`[PASSED] Email logs recorded in PostgreSQL for task: ${emailLogs.length}`);
     emailLogs.forEach((log) => {
-      console.log(`         - Event: ${log.eventType} | To: ${log.recipient} | Status: ${log.status} | ResendId: ${log.providerEmailId || "None"} | Error: ${log.errorMessage || "None"}`);
+      console.log(`         - Event: ${log.eventType} | To: ${log.recipient} | Status: ${log.status} | MessageId: ${log.providerEmailId || "None"} | Error: ${log.errorMessage || "None"}`);
     });
 
     console.log("\n================================================================================");
